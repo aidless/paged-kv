@@ -86,6 +86,22 @@ make test    # 三个测试套件全绿：block_manager / kv_cache / prefix_cach
 | 驱逐不检查引用中 | 3 checks 红 |
 | `cache_block` 不校验块号上界 | 段错误（越界写穿块状态数组） |
 
+## 仓库结构
+
+```
+include/kv/block_manager.h   BlockManager: 分配/回收/COW/引用计数/前缀缓存接口
+include/kv/kv_cache.h        KVCache: 槽位映射 + 物理 KV 存储（decode 闭环）
+src/block_manager.cpp        实现（含 FNV-1a 链式哈希 + FIFO 驱逐）
+src/kv_cache.cpp             实现
+tests/test_block_manager.cpp 块管理边界（耗尽/COW/双释放/驱逐）
+tests/test_kv_cache.cpp      槽位映射 + decode 路径（74 checks）
+tests/test_prefix_cache.cpp  链式哈希命中 + 驱逐（133 checks）
+cuda/                        CUDA 融合算子（fused softmax / silu-and-mul）+ benchmark
+hip/                         HIP 同构移植（hipcc 编译，gfx1100 实测）
+notes/                       micro-vLLM 源码对照笔记 + 实测方法论
+Makefile                     make test（三套件） / make clean
+```
+
 ## 对照 vLLM 源码
 
 | 本仓库 | vLLM 对应物 |
