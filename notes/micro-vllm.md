@@ -1,7 +1,10 @@
 # micro-vllm 精读：paged KV cache 的最小完整实现
 
 - 仓库：`mukhal/micro-vllm`，默认分支 **master**（不是 main，抓源码时踩过）
-- 版本：2026-10-31 经 GitHub contents API 取回（clone 被代理 TLS 切断）
+- 锁定 commit：`d4c74378b194a67606b362ac9899a471e48d022d`（2026-03-18）
+  —— 本笔记所有 `文件:行号` 都相对这个 commit；上游再有提交，行号会漂移
+- 取源码的方式：`git clone` 被代理 TLS 切断，改用 GitHub contents API
+  （`/repos/.../contents/<path>?ref=master`，base64 解码）取回
 - 体量：`engine.py` 547 行、`model.py` 218 行、`attention.py` 105 行
 - 它是什么：一个 kilo-scale 的推理引擎，骨架与 vLLM v1 同构——block manager + paged KV cache + 调度 + 采样
 
