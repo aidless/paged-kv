@@ -30,6 +30,10 @@ std::vector<int64_t> slots;
 m.compute_slot_mapping(2, /*start_pos=*/0, /*num_new_tokens=*/1, &slots);
 cache.write_tokens(slots, kv_data, /*num_floats=*/64);   // 写进物理槽位
 cache.gather(m.block_table(2), m.seq_len(2), out);       // 拼回整段历史
+
+// prefix caching：相同前缀不重复 prefill、不重复占显存
+uint64_t h = m.cache_block(block_id, block_tokens, /*parent_hash=*/0);  // 登记满块
+int hit = m.acquire_prefix(new_seq, prompt_tokens);   // 按整块步进命中，返回块数
 ```
 
 语义约定（详见头文件注释）：
@@ -41,6 +45,11 @@ cache.gather(m.block_table(2), m.seq_len(2), out);       // 拼回整段历史
   旧块引用 -1。块已满时 append 走正常扩块路径，与共享无关。
 - **槽位编号**：`slot = block_id * block_size + offset`，一次查表定位任意 token 的 KV，
   对应真实 kernel 里 `slot_mapping` 数组的取值语义。
+- **只缓存满块**：`cache_block` 拒绝不足 `block_size` 的 token。满块内容由 token 序列唯一确定，
+  之后谁都不会再写它，共享块天然只读——这样 prefix cache 与 COW 不打架。
+  未满块的共享走 `fork_sequence` + COW，两者互补不重叠。
+- **缓存块引用归零不回空闲链**：它留在缓存里等后续命中，只在池子真正用完时被
+  `evict_one_cached` 驱逐（且只驱逐 `ref_count == 0` 的）。
 
 ## 测试
 
@@ -54,13 +63,28 @@ cache.gather(m.block_table(2), m.seq_len(2), out);       // 拼回整段历史
 | 双释放 | 重复 free 不破坏空闲链；重复 fork 被拒绝 |
 | 槽位越界 | 批量写入混入非法槽位时一个字节都不写 |
 | decode 闭环 | 追加 -> 算槽位 -> 写 KV -> 拼回，跨块边界正确 |
+| 前缀链不匹配 | 同内容不同父哈希不算命中（链式哈希绑定整条前缀） |
+| 缓存块存活 | 序列释放后缓存块仍在缓存、仍可被第三个请求命中 |
+| 驱逐 | 池子用完时 FIFO 驱逐缓存块；引用中的缓存块不可驱逐 |
+| 哈希碰撞 | 注入必然碰撞的哈希后，内容复验必须拦住假命中 |
 
 ```bash
-make test    # 两个测试套件全绿：ALL PASS
+make test    # 三个测试套件全绿：block_manager / kv_cache / prefix_cache
 ```
 
-测试本身做过变异验证：去掉槽位计算的 `+ offset`、去掉批量写的越界预校验，
-测试都会变红（后者直接 `double free or corruption` 崩溃），确认断言不是装饰。
+测试本身做过变异验证（7 个变异，全部变红），确认断言不是装饰：
+
+| 变异 | 结果 |
+|---|---|
+| 槽位计算去掉 `+ offset` | 8 checks 红 |
+| 批量写去掉越界预校验 | `double free or corruption (out)` 崩溃 |
+| 去掉哈希碰撞的内容复验 | 3 checks 红（靠注入必然碰撞的哈希才测得到） |
+| `dec_ref` 不保留缓存块 | 6 checks 红 |
+| 命中不回填引用计数 | 4 checks 红 |
+| `cache_block` 不校验满块 | 5 checks 红 |
+| 碰撞时覆盖旧映射 | 2 checks 红 |
+| 驱逐不检查引用中 | 3 checks 红 |
+| `cache_block` 不校验块号上界 | 段错误（越界写穿块状态数组） |
 
 ## 对照 vLLM 源码
 
@@ -71,6 +95,9 @@ make test    # 两个测试套件全绿：ALL PASS
 | `fork_sequence` | `fork()`（prefix caching / beam search 复用） |
 | COW 路径 | `copy_on_write` + `cow_tracker` |
 | `compute_slot_mapping` | `slot_mapping`（每 step 由 block table 现算） |
+| `cache_block` / `acquire_prefix` | prefix caching：`cache_full_blocks` + `get_computed_blocks` |
+| `hash_block`（FNV-1a 链式） | `hash_request_tokens`（用 xxhash，同样链式挂父哈希） |
+| `evict_one_cached` | `evict()`（LRU/FIFO 释放已无引用的缓存块） |
 
 源码对照笔记见 [notes/](notes/)。
 
@@ -79,7 +106,7 @@ make test    # 两个测试套件全绿：ALL PASS
 - [x] 块管理器：分配/回收/COW/引用计数
 - [x] 槽位映射 + KV 存储层（decode 闭环可测）
 - [ ] CUDA kernels：fused softmax、silu-and-mul，ncu profile
-- [ ] prefix caching：`hash -> block_id` 映射（只缓存满块，见 notes）
+- [x] prefix caching：链式哈希命中 + FIFO 驱逐（只缓存满块，见 notes/micro-vllm.md）
 - [ ] continuous batching 调度器
 
 ## 参考

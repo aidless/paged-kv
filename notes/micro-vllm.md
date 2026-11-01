@@ -53,7 +53,11 @@
 
 ## 对本仓库的结论（下一步方向）
 
-1. **prefix caching 是明确缺口**：本仓库有 fork/COW，但没有"跨请求按内容命中共享"。补这个要引入 `hash -> block_id` 映射 + 块内容指纹。设计上必须采纳 micro-vllm 的约束：**只缓存满块**，否则共享块会和 COW 逻辑打架（COW 每触发一次，前缀缓存就失效一次）。
+1. **prefix caching 是明确缺口** —— **已于 2026-11-01 落地**（`cache_block` / `acquire_prefix` / `evict_one_cached`）。引入 `hash -> block_id` 映射 + 块内容指纹，并采纳 micro-vllm 的约束：**只缓存满块**，否则共享块会和 COW 逻辑打架（COW 每触发一次，前缀缓存就失效一次）。
+   实现期与本项目的三处差异：
+   - 哈希用 **FNV-1a 64** 而非 xxhash（零外部依赖），并做成**可替换策略**（`set_hasher`）——测试注入必然碰撞的哈希才能验证碰撞防御，真哈希撞一次要 2^32 次尝试。
+   - 驱逐是 **FIFO**（`cached_order_` 队首），micro-vllm 的 free list 也是 `popleft()` FIFO；但本仓库只驱逐 `ref_count == 0` 的块，引用中的块挪队尾（vLLM 用 LRU + `evict()`）。
+   - 缓存块**引用归零不回空闲链**，留在缓存里等后续命中——这是与 micro-vllm 一致的行为（`engine.py:170-177` 只在 ref 归零时把块**还给 free list**，但保留 hash 映射的做法各家不同；本仓库选择保留映射直到真正驱逐）。
 2. **COW 与 prefix cache 是两个互补而非重叠的机制**：
    - prefix cache 解决"两个新请求有相同前缀 → 不重复 prefill"
    - COW 解决"已共享的未满块要写入 → 不污染对方"
