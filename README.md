@@ -105,9 +105,35 @@ make test    # 三个测试套件全绿：block_manager / kv_cache / prefix_cach
 
 - [x] 块管理器：分配/回收/COW/引用计数
 - [x] 槽位映射 + KV 存储层（decode 闭环可测）
-- [ ] CUDA kernels：fused softmax、silu-and-mul，ncu profile
+- [x] CUDA kernels：fused softmax、silu-and-mul，benchmark（HIP 实测，见下方）
 - [x] prefix caching：链式哈希命中 + FIFO 驱逐（只缓存满块，见 notes/micro-vllm.md）
 - [ ] continuous batching 调度器
+
+## 算子融合基准（HIP / gfx1100）
+
+对拍（CPU 参考）全部 PASS，`max|diff|`：softmax 1.86e-09、silu 1.91e-06（容差 1e-4）。
+分母不用规格常数，用 **1 GiB D2D 拷贝实测上限**（`peak_bw_method=measured_d2d_1gib`），
+因为 HIP 的 `memoryClockRate` 语义与 CUDA 不一致（gfx1100 报 1124 MHz 但有效数据率是 4 倍，
+naive 公式低估 ~8 倍）。
+
+| 算子 | 变体 | 耗时 | 有效带宽 | 峰值占比 |
+|------|------|------|----------|----------|
+| softmax (4096×1024) | fused 单 kernel | 0.0415 ms | 817 GB/s | 114% |
+| | three-pass（中间量落显存） | 0.0869 ms | 386 GB/s | 54% |
+| silu-and-mul (n≈45.1M) | float4 向量化 | 0.755 ms | 716 GB/s | 100% |
+| | scalar | 0.780 ms | 690 GB/s | 96% |
+
+- **softmax 融合 2.09×**：单 kernel 无中间张量，输入基本留在 L2（>100% 正常）；
+  three-pass 每行读 3 次 + row_max/row_sum 写读，DRAM 流量约为融合的 2 倍。
+- **silu 向量化 1.03×**：float4 每条指令搬 16B，已近峰值带宽，剩余收益来自指令数下降
+  （标量版也已在带宽上限附近，故提升小——这正是带宽受限算子的特征）。
+- 代码：`cuda/`（CUDA 版）与 `hip/`（HIP 同构移植，`hipcc` 编译），同一份算法两份编译，
+  是「异构算子可移植」的最小证明。CUDA 侧未在 NVIDIA 硬件验证（本机无 nvcc）。
+
+实现期关键教训（写进 [notes/](notes/)）：
+- 两个变体可能是同一个 kernel——必须先 diff 验证变体真的不同，再跑对照；
+- 实测 D2D 带宽随拷贝尺寸变化（L2 内 6MB 会虚高到 800–1600 GB/s），分母必须用 1 GiB 稳态值；
+- printf 多参数求值顺序在 GCC 下从右到左，带副作用的调用与读状态混在同一 printf 会读错。
 
 ## 参考
 
