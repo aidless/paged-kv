@@ -52,6 +52,15 @@ public:
     // 序列不存在时返回 false。
     bool append_token(int seq);
 
+    // ---- 槽位映射（块管理器的下游消费者）----
+
+    // 计算 seq 从 start_pos 开始追加 num_new_tokens 个 token 时，
+    // 每个 token 应写入的物理槽位编号：slot = block_id * block_size + offset。
+    // 块表必须已覆盖到 start_pos + num_new_tokens，否则返回 false 且 *out 不变。
+    // 对应 vLLM 的 slot_mapping：prefill 一次算整段 prompt，decode 每步只算 1 个。
+    bool compute_slot_mapping(int seq, int64_t start_pos, int64_t num_new_tokens,
+                              std::vector<int64_t>* out) const;
+
     // ---- 查询 ----
 
     int num_free_blocks() const;

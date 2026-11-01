@@ -4,7 +4,7 @@
 
 ## 精读顺序
 
-1. **mukhal/micro-vllm** —— 单文件 paged attention，第一个通读
+1. ✅ **mukhal/micro-vllm** —— 已精读，见 [micro-vllm.md](micro-vllm.md)
 2. **psmarter/mini-infer** —— paged KV cache + continuous batching + TP，主线教材
 3. **HJCheng0602/nanoPD** —— 从零 PD 分离引擎，直接对应推理岗 JD
 4. **vLLM v1** —— `vllm/v1/core/block_pool.py`，工业标准实现，做对照

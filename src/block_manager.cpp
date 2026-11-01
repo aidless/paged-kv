@@ -95,6 +95,30 @@ bool BlockManager::append_token(int seq) {
     return true;
 }
 
+bool BlockManager::compute_slot_mapping(int seq, int64_t start_pos, int64_t num_new_tokens,
+                                        std::vector<int64_t>* out) const {
+    if (out == nullptr || start_pos < 0 || num_new_tokens < 0) return false;
+    auto it = tables_.find(seq);
+    if (it == tables_.end()) return false;  // 未初始化的序列没有块表
+
+    const std::vector<BlockId>& table = it->second;
+    const int64_t end_pos = start_pos + num_new_tokens;
+    const int64_t needed_blocks = (end_pos + block_size_ - 1) / block_size_;
+    if (needed_blocks > static_cast<int64_t>(table.size())) return false;
+
+    std::vector<int64_t> slots;
+    slots.reserve(static_cast<size_t>(num_new_tokens));
+    for (int64_t i = 0; i < num_new_tokens; ++i) {
+        const int64_t pos = start_pos + i;
+        const int64_t block_idx = pos / block_size_;
+        const int64_t offset = pos % block_size_;
+        slots.push_back(static_cast<int64_t>(table[static_cast<size_t>(block_idx)]) * block_size_ +
+                        offset);
+    }
+    *out = std::move(slots);  // 全部算成功后才改动调用方数据
+    return true;
+}
+
 int BlockManager::num_free_blocks() const {
     return static_cast<int>(free_list_.size());
 }
