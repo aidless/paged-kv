@@ -72,7 +72,7 @@ int hit = m.acquire_prefix(new_seq, prompt_tokens);   // 按整块步进命中�
 make test    # 三个测试套件全绿：block_manager / kv_cache / prefix_cache
 ```
 
-测试本身做过变异验证（7 个变异，全部变红），确认断言不是装饰：
+测试本身做过变异验证（9 个变异，全部变红），确认断言不是装饰：
 
 | 变异 | 结果 |
 |---|---|
@@ -110,6 +110,11 @@ make test    # 三个测试套件全绿：block_manager / kv_cache / prefix_cach
 - [ ] continuous batching 调度器
 
 ## 算子融合基准（HIP / gfx1100）
+
+> **证据边界**：下面的数字来自作者机器上一次 HIP 运行，**原始输出没有随仓发布**。
+> 仓内可复现的是 `make test` 那三个 C++ 套件（74 + 133 checks），以及 `hip/`、`cuda/`
+> 两份源码本身；带 `hipcc` / `nvcc` 的机器可以重跑 `hip/Makefile` 自行取数。
+> 引用这组带宽数时请带上这个前提。
 
 对拍（CPU 参考）全部 PASS，`max|diff|`：softmax 1.86e-09、silu 1.91e-06（容差 1e-4）。
 分母不用规格常数，用 **1 GiB D2D 拷贝实测上限**（`peak_bw_method=measured_d2d_1gib`），
