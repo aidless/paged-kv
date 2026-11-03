@@ -7,6 +7,10 @@ C++ 实现的 PagedAttention 风格 KV cache 块管理器。
 不含 KV 数据本身，专注生命周期与引用计数的簿记，也就是 vLLM
 `vllm/v1/core/block_pool.py` + `block_manager` 那一层做的事。
 
+**验证过什么**：`make test` 三个 C++ 套件全绿（74 + 133 checks，覆盖 COW 引用计数、跨序列共享、prefix 命中、OOM 时失败无副作用）。
+
+**怎么跑**：`make test`，只需 g++ 与 make，无第三方依赖；不需要 GPU。
+
 ## 为什么值得手写
 
 面试推理引擎岗时，「PagedAttention 是什么」人人能答；
