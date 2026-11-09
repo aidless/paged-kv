@@ -1,5 +1,7 @@
 # paged-kv
 
+[![CI](https://github.com/aidless/paged-kv/actions/workflows/ci.yml/badge.svg)](https://github.com/aidless/paged-kv/actions/workflows/ci.yml)
+
 C++ 实现的 PagedAttention 风格 KV cache 块管理器。
 
 大模型推理时，vLLM 的核心贡献是把 KV cache 像操作系统虚拟内存一样**分页管理**：
