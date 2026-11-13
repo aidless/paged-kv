@@ -6,6 +6,8 @@ on:
   pull_request:
   workflow_dispatch:
 
+permissions:
+  contents: read
 jobs:
   test:
     # The whole project is three C++ test binaries: block manager, KV cache
