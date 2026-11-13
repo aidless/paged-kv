@@ -1,11 +1,17 @@
 # paged-kv
 
+[![CI](https://github.com/aidless/paged-kv/actions/workflows/ci.yml/badge.svg)](https://github.com/aidless/paged-kv/actions/workflows/ci.yml)
+
 C++ 实现的 PagedAttention 风格 KV cache 块管理器。
 
 大模型推理时，vLLM 的核心贡献是把 KV cache 像操作系统虚拟内存一样**分页管理**：
 物理块按需分配、多序列共享、写时复制。这个仓库从零实现其中的**块管理层**——
 不含 KV 数据本身，专注生命周期与引用计数的簿记，也就是 vLLM
 `vllm/v1/core/block_pool.py` + `block_manager` 那一层做的事。
+
+**验证过什么**：`make test` 三个 C++ 套件全绿（74 + 133 checks，覆盖 COW 引用计数、跨序列共享、prefix 命中、OOM 时失败无副作用）。
+
+**怎么跑**：`make test`，只需 g++ 与 make，无第三方依赖；不需要 GPU。
 
 ## 为什么值得手写
 
@@ -72,7 +78,7 @@ int hit = m.acquire_prefix(new_seq, prompt_tokens);   // 按整块步进命中�
 make test    # 三个测试套件全绿：block_manager / kv_cache / prefix_cache
 ```
 
-测试本身做过变异验证（7 个变异，全部变红），确认断言不是装饰：
+测试本身做过变异验证（9 个变异，全部变红），确认断言不是装饰：
 
 | 变异 | 结果 |
 |---|---|
@@ -126,6 +132,11 @@ Makefile                     make test（三套件） / make clean
 - [ ] continuous batching 调度器
 
 ## 算子融合基准（HIP / gfx1100）
+
+> **证据边界**：下面的数字来自作者机器上一次 HIP 运行，**原始输出没有随仓发布**。
+> 仓内可复现的是 `make test` 那三个 C++ 套件（74 + 133 checks），以及 `hip/`、`cuda/`
+> 两份源码本身；带 `hipcc` / `nvcc` 的机器可以重跑 `hip/Makefile` 自行取数。
+> 引用这组带宽数时请带上这个前提。
 
 对拍（CPU 参考）全部 PASS，`max|diff|`：softmax 1.86e-09、silu 1.91e-06（容差 1e-4）。
 分母不用规格常数，用 **1 GiB D2D 拷贝实测上限**（`peak_bw_method=measured_d2d_1gib`），

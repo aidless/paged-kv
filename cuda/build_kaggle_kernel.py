@@ -1,11 +1,10 @@
 #!/usr/bin/env python3
 """把 cuda/ 下的源码打包成一个 Kaggle script kernel，然后由 kaggle CLI 推送。
 
-为什么走这条路：本机的 NVIDIA 卡被 nouveau 占用、装闭源驱动要 sudo 密码且要重启，
-根分区也只剩 15G；云端 GPU 里 seetacloud 的 SOCKS 通道断了、ecs 实例没有 GPU。
-Kaggle 的 T4 是当前唯一能跑 CUDA 的通道，而 Kaggle kernel 只接受单个代码文件，
-所以这里把 .cu/.h 源码 base64 内嵌进 kernel.py——**单一真相源仍然是 cuda/ 里的
-.cu 文件**，kernel.py 是纯生成物，改完源码重跑本脚本即可。
+为什么走这条路：作者当时的机器没有可用的 NVIDIA 驱动，而 Kaggle 的 T4 是可用的
+CUDA 通道；Kaggle kernel 只接受单个代码文件，所以这里把 .cu/.h 源码 base64 内嵌进
+kernel.py——**单一真相源仍然是 cuda/ 里的 .cu 文件**，kernel.py 是纯生成物，
+改完源码重跑本脚本即可。
 
 用法：
     python3 cuda/build_kaggle_kernel.py [输出目录]
@@ -20,12 +19,15 @@ Kaggle 的 T4 是当前唯一能跑 CUDA 的通道，而 Kaggle kernel 只接受
 
 import base64
 import json
+import os
 import pathlib
 import sys
 
 KERNEL_SLUG = "paged-kv-cuda-bench"
 KERNEL_TITLE = "paged-kv CUDA bench (fused softmax / silu_and_mul)"
-USERNAME = "liuzewen"
+# Kaggle account that owns the target kernel. Override with the
+# PAGED_KV_KAGGLE_USER environment variable.
+USERNAME = os.environ.get("PAGED_KV_KAGGLE_USER", "aidless")
 
 HERE = pathlib.Path(__file__).resolve().parent
 
