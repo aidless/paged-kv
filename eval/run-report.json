@@ -1,0 +1,129 @@
+{
+ "total": 20,
+ "passed": 20,
+ "failed": 0,
+ "selftest": false,
+ "failed_by_axis": {},
+ "results": [
+  {
+   "id": "PV-01",
+   "axis": "block/alloc",
+   "ok": true,
+   "detail": "0 1 2"
+  },
+  {
+   "id": "PV-02",
+   "axis": "block/append",
+   "ok": true,
+   "detail": "1 3 2 2"
+  },
+  {
+   "id": "PV-03",
+   "axis": "block/append",
+   "ok": true,
+   "detail": "0 4 1 0 0"
+  },
+  {
+   "id": "PV-04",
+   "axis": "block/cow",
+   "ok": true,
+   "detail": "2 1 1 0"
+  },
+  {
+   "id": "PV-05",
+   "axis": "block/cow",
+   "ok": true,
+   "detail": "1 1 0 2"
+  },
+  {
+   "id": "PV-06",
+   "axis": "block/slot",
+   "ok": true,
+   "detail": "2 3 4 5"
+  },
+  {
+   "id": "PV-07",
+   "axis": "block/slot",
+   "ok": true,
+   "detail": "0 1 777"
+  },
+  {
+   "id": "PV-08",
+   "axis": "kv/write",
+   "ok": true,
+   "detail": "-1 0"
+  },
+  {
+   "id": "PV-09",
+   "axis": "kv/gather",
+   "ok": true,
+   "detail": "5 5 1 -1"
+  },
+  {
+   "id": "PV-10",
+   "axis": "kv/ctor",
+   "ok": true,
+   "detail": "raised ValueError"
+  },
+  {
+   "id": "PV-11",
+   "axis": "block/ctor",
+   "ok": true,
+   "detail": "raised ValueError"
+  },
+  {
+   "id": "PV-12",
+   "axis": "prefix/hash",
+   "ok": true,
+   "detail": "8910588381388495271 5282980270837003556"
+  },
+  {
+   "id": "PV-13",
+   "axis": "prefix/hit",
+   "ok": true,
+   "detail": "4 16 2 4"
+  },
+  {
+   "id": "PV-14",
+   "axis": "prefix/hit",
+   "ok": true,
+   "detail": "2 8"
+  },
+  {
+   "id": "PV-15",
+   "axis": "prefix/evict",
+   "ok": true,
+   "detail": "2 2 1 1"
+  },
+  {
+   "id": "PV-16",
+   "axis": "prefix/collision",
+   "ok": true,
+   "detail": "0 0 1"
+  },
+  {
+   "id": "PV-17",
+   "axis": "tests/count",
+   "ok": true,
+   "detail": "74 133"
+  },
+  {
+   "id": "PV-18",
+   "axis": "doc/readme",
+   "ok": true,
+   "detail": "三方共享时只触发 2 次 COW（最后持有者原地写）"
+  },
+  {
+   "id": "PV-19",
+   "axis": "doc/notes",
+   "ok": true,
+   "detail": "链式哈希必须挂父哈希**：`hash_block(parent_hash, bl"
+  },
+  {
+   "id": "PV-20",
+   "axis": "doc/prereg",
+   "ok": true,
+   "detail": "去掉哈希碰撞的内容复验 | 3 checks 红（靠注入必然碰撞的哈希才测得到）"
+  }
+ ]
+}

@@ -170,6 +170,31 @@ naive 公式低估 ~8 倍）。
 - [mukhal/micro-vllm](https://github.com/mukhal/micro-vllm) —— 单文件 paged attention
 - [psmarter/mini-infer](https://github.com/psmarter/mini-infer) —— 从零推理引擎
 
+## 验收题库与复算
+
+`eval/cases.jsonl` 是 20 条可执行验收题，覆盖块管理器五个面的关键口径
+（分配/回收、按需扩块、COW 引用计数、槽位映射失败原子性、KV 读写与 gather），
+以及前缀缓存的四类边界（链式哈希、整块命中、尾部不匹配、FIFO 驱逐、哈希碰撞复验），
+加上构造函数入参校验与 C++ 测试套件的实际 check 数。**17 条是 `expr`/`raises`，
+期望值不是抄文档，而是真编译 `src/` 并调用 `BlockManager` / `KVCache` 现算出来的**
+（探针源码内联在 `verify` 里，用 `g++ -std=c++17 -Iinclude` 编到临时目录后运行；
+对象文件与探针产物缓存在 `$TMPDIR/paged-kv-eval-cache`，第二次起不再重编）：
+
+```bash
+python3 eval/run_cases.py            # 20/20 cases passed（需要 g++）
+python3 eval/run_cases.py --save     # 顺带把结果写进 eval/run-report.json
+python3 eval/run_cases.py --selftest # 篡改一条期望值，必须变红（19/20，证明这套题会失败）
+```
+
+**数字如何复算**：`eval/run-report.json` 里每条 case 都带 `id` / `axis` / `detail`，
+把 `detail` 与 `cases.jsonl` 的 `verify` 代码一起看，就能从源码复现该数字；
+`--save` 重跑一次即可重建整份报告，不需要手工抄数。题面用到的常量都能在仓内对上：
+`hash_block` 的 FNV-1a 64 值可在任何语言里独立重算（先混父哈希 8 字节、再逐 token 混
+4 字节小端），三个 C++ 套件的 check 数以 `make test` 的打印为准（74 / 133）。
+
+**失败归因**：`run_cases.py` 不只报通过率，失败时按 `axis` 汇总（例如
+`block/cow: 1 条 —— PV-05`），直接指出是哪个模块的哪个口径坏了。
+
 ## License
 
 MIT
