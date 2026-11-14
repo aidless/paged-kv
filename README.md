@@ -194,6 +194,45 @@ python3 eval/run_cases.py --selftest # 篡改一条期望值，必须变红（19
 
 **失败归因**：`run_cases.py` 不只报通过率，失败时按 `axis` 汇总（例如
 `block/cow: 1 条 —— PV-05`），直接指出是哪个模块的哪个口径坏了。
+按轴落点：`block/alloc`、`block/append`、`block/cow`、`block/free` 归 `src/block_manager.cpp`
+的分配/扩块/引用计数路径；`kv/slot`、`kv/decode` 归 `src/kv_cache.cpp` 的槽位映射与 gather；
+`prefix/hash`、`prefix/hit`、`prefix/evict` 归 FNV-1a 链式哈希、满块命中与 FIFO 驱逐；
+`api/ctor`、`doc/prereg` 归构造入参校验与文档口径。
+
+## 验收判据与统计口径
+
+**验收判据（什么算过）**：`python3 eval/run_cases.py` 必须 **20/20** 全通过（通过率
+**≥ 100%**，任一条红即判定不达标）；`make test` 三个 C++ 套件必须全绿，其中
+`test_kv_cache` 74 checks、`test_prefix_cache` 133 checks，合计 **≥ 207 checks** 零失败。
+两个条件同时成立才算本仓当前状态达标，缺一不可。
+
+**统计口径**：验收样本量 **n = 20**（`eval/cases.jsonl` 的 20 条题；逐条结果在
+`eval/run-report.json` 的 `results` 数组里，`total` 字段即 n）。按 Wilson 区间算
+20/20 的 **95% CI = [0.839, 1.000]**（通过率的区间估计；复算命令如下，纯标准库）：
+
+```bash
+python3 - <<'EOF'
+import math
+n, k, z = 20, 20, 1.959963984540054      # n = cases.jsonl 条数；k = 通过条数
+p = k / n
+den = 1 + z*z/n
+c = (p + z*z/(2*n)) / den
+h = z * math.sqrt(p*(1-p)/n + z*z/(4*n*n)) / den
+print(round(c-h, 4), round(c+h, 4))       # 0.8389 1.0
+EOF
+```
+
+**成本/延迟**：整套验收题在本机的墙钟是**首次 10.4 s、命中编译缓存后 0.17 s**
+（`rm -rf ${TMPDIR:-/tmp}/paged-kv-eval-cache && /usr/bin/time -f %e python3 eval/run_cases.py`，
+再跑一次取第二次；差别全在 `g++ -O0` 编译 `src/` 与 17 个内联探针上）。
+算子侧的延迟数见下方「算子融合基准」表的 0.0415 / 0.0869 / 0.755 / 0.780 ms，
+来自作者机器一次 HIP 运行；`make eval` 一条命令即可同时重跑题库与三套件。
+
+**数字边界（哪些自造、哪些引自何处）**：README 里所有 C++ 行为数字（块号、引用计数、
+seq_len、check 数 74/133、20/20）都是**本仓自己的**代码现跑出来的，不引自 vLLM 或任何
+论文；算子带宽/延迟是**作者在 gfx1100 上自测**，非引自厂商规格表，也非原图转载，原始
+输出未随仓发布；「参考」一节列出的三个项目只用于设计对照，**没有复制其源码**；
+`notes/micro-vllm.md` 里标注为「作者整理」的段落是阅读后的归纳，不是原文摘录。
 
 ## License
 
